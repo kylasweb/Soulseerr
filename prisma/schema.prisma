@@ -1,0 +1,1301 @@
+// SoulSeer Spiritual Consultation Platform Database Schema
+// Comprehensive schema for users, sessions, payments, marketplace, and community features
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Core User Management System
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String? // Display name for community features
+  username     String?    @unique
+  passwordHash String? // Optional for Firebase users
+  role         UserRole
+  status       UserStatus @default(ACTIVE)
+
+  // Firebase Authentication Integration
+  firebaseUid     String?      @unique // Firebase User ID
+  displayName     String? // User's display name
+  avatar          String? // Profile picture URL
+  profileImageUrl String? // Profile image URL for community
+  provider        AuthProvider @default(EMAIL) // Authentication provider
+  emailVerified   Boolean      @default(false)
+
+  // Virtual economy
+  coinBalance Int @default(0) // Virtual coins for gifts and features
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Profile relationships
+  clientProfile Client?
+  readerProfile Reader?
+
+  adminProfile Admin?
+
+  // Financial relationships
+  wallet           Wallet?
+  userTransactions Transaction[] @relation("UserTransactions")
+
+  // Session relationships
+  clientSessions Session[] @relation("ClientSessions")
+  readerSessions Session[] @relation("ReaderSessions")
+
+  // Advanced session management
+  clientBookings SessionBooking[] @relation("ClientBookings")
+  readerBookings SessionBooking[] @relation("ReaderBookings")
+
+  readerAvailabilityOverrides ReaderAvailabilityOverride[] @relation("ReaderAvailabilityOverrides")
+  readerTemplates             SessionTemplate[]            @relation("ReaderTemplates")
+
+  // Marketplace relationships
+  orders Order[]
+
+  // Community relationships
+  sentMessages     Message[]       @relation("SentMessages")
+  receivedMessages Message[]       @relation("ReceivedMessages")
+  forumPosts       ForumPost[]
+  forumReplies     ForumReply[]
+  forumPostLikes   ForumPostLike[]
+  authoredThreads  ForumThread[]
+  liveStreams      LiveStream[]
+  sentGifts        VirtualGift[]   @relation("VirtualGiftSender")
+  receivedGifts    VirtualGift[]   @relation("VirtualGiftReceiver")
+
+  // Additional relationships
+  chatMessages  ChatMessage[]
+  clientReviews Review[]       @relation("ReviewClient")
+  readerReviews Review[]       @relation("ReviewReader")
+  payouts       Payout[]
+  auditLogs     AuditLog[]
+  availability  Availability[] @relation("ReaderAvailability")
+  products      Product[]      @relation("ReaderProducts")
+  notifications Notification[]
+  purchases     Purchase[]
+
+  // Content Management relationships
+  authoredContent ContentItem[] @relation("ContentAuthor")
+
+  authoredVersions      ContentVersion[] @relation("VersionAuthor")
+  authoredComments      ContentComment[] @relation("ContentCommentAuthor")
+  authoredKnowledgeBase KnowledgeBase[]  @relation("KnowledgeBaseAuthor")
+
+  // Support System relationships
+  supportTicketsAsCustomer SupportTicket[]  @relation("SupportTicketCustomer")
+  supportTicketsAssigned   SupportTicket[]  @relation("SupportTicketAssignedTo")
+  supportMessages          SupportMessage[] @relation("SupportMessageAuthor")
+  supportAgentProfile      SupportAgent?    @relation("SupportAgentUser")
+
+  @@map("users")
+}
+
+enum UserRole {
+  CLIENT
+  READER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+
+  SUSPENDED
+  PENDING
+  BANNED
+}
+
+enum AuthProvider {
+  EMAIL
+  GOOGLE
+  FACEBOOK
+  TWITTER
+  GITHUB
+}
+
+// Client Profile
+model Client {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  firstName   String?
+  lastName    String?
+  avatar      String?
+  bio         String?
+  dateOfBirth DateTime?
+  timezone    String    @default("UTC")
+  preferences Json // Store client preferences as JSON
+
+  // Session preferences
+  preferredSessionTypes Json // ["chat", "call", "video"] stored as JSON
+  preferredCategories   Json // Categories stored as JSON
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("clients")
+}
+
+// Reader Profile
+model Reader {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Personal Information
+  firstName String
+  lastName  String
+  avatar    String?
+  bio       String
+  headline  String? // Short professional tagline
+
+  // Professional Details
+  specialties    Json // ["tarot", "astrology", "mediumship"] stored as JSON
+  experience     Int // Years of experience
+  certifications Json // Certifications stored as JSON
+  languages      Json // ["en", "es", "fr"] stored as JSON
+
+  // Business Settings
+  sessionTypes Json // ["chat", "call", "video"] stored as JSON
+  pricing      Json // Dynamic pricing per session type
+  status       ReaderStatus @default(OFFLINE)
+
+  // Verification & Compliance
+  isVerified       Boolean @default(false)
+  verificationDocs Json // Paths to verification documents stored as JSON
+  stripeAccountId  String? // Stripe Connect account ID
+
+  // Statistics
+  totalSessions Int   @default(0)
+  totalEarnings Float @default(0)
+  averageRating Float @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("readers")
+}
+
+enum ReaderStatus {
+  ONLINE
+  OFFLINE
+  BUSY
+  AWAY
+  INVISIBLE
+}
+
+// Admin Profile
+model Admin {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  firstName   String?
+  lastName    String?
+  avatar      String?
+  permissions Json // ["manage_users", "manage_finances", "moderate_content"] stored as JSON
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admins")
+}
+
+// Session Management System
+model Session {
+  id        String @id @default(cuid())
+  sessionId String @unique // External session ID for WebRTC
+
+  // Participants
+  clientId String
+  client   User   @relation("ClientSessions", fields: [clientId], references: [id])
+  readerId String
+  reader   User   @relation("ReaderSessions", fields: [readerId], references: [id])
+
+  // Session Details
+  type        SessionType
+  status      SessionStatus
+  scheduledAt DateTime?
+  startedAt   DateTime?
+  endedAt     DateTime?
+  duration    Int? // Duration in minutes
+
+  // Financial Details
+  readerRate    Float // Per-minute rate
+  totalCost     Float?
+  transactionId String? // Reference to transaction
+
+  // Content & Recording
+  chatMessages ChatMessage[]
+  recordingUrl String?
+
+  // Review & Rating
+  review Review?
+
+  // Additional relationships
+  transactions Transaction[] @relation("SessionTransactions")
+
+  // Advanced session management relationships
+  booking   SessionBooking?
+  recording SessionRecording?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("sessions")
+}
+
+enum SessionType {
+  CHAT
+  CALL
+  VIDEO
+}
+
+enum SessionStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+  DISCONNECTED
+}
+
+// Enhanced Session Management Models
+model SessionBooking {
+  id String @id @default(cuid())
+
+  // Session reference
+  sessionId String?  @unique
+  session   Session? @relation(fields: [sessionId], references: [id])
+
+  // Participants
+  clientId String
+  client   User   @relation("ClientBookings", fields: [clientId], references: [id])
+  readerId String
+  reader   User   @relation("ReaderBookings", fields: [readerId], references: [id])
+
+  // Booking details
+  preferredDates   Json // Multiple preferred time slots as JSON
+  selectedDateTime DateTime? // Final selected time
+  duration         Int // Duration in minutes
+  sessionType      SessionType
+
+  // Requirements and preferences
+  requirements String? // Special requests
+  category     String? // Reading type (tarot, astrology, etc.)
+  priority     BookingPriority @default(NORMAL)
+
+  // Booking status and lifecycle
+  status        BookingStatus
+  bookingSource BookingSource @default(PLATFORM)
+
+  // Pricing
+  estimatedCost Float?
+  finalCost     Float?
+
+  // Scheduling data
+  proposedTimes   Json? // Alternative times proposed by reader
+  rescheduleCount Int   @default(0)
+
+  // Communication
+  notes         String?
+  internalNotes String? // Staff notes
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("session_bookings")
+}
+
+enum BookingStatus {
+  PENDING // Awaiting reader confirmation
+  CONFIRMED // Confirmed by reader
+  AUTO_CONFIRMED // Auto-confirmed based on availability
+  RESCHEDULED // Time changed
+  CANCELLED_CLIENT // Cancelled by client
+  CANCELLED_READER // Cancelled by reader
+  EXPIRED // Booking expired without confirmation
+  COMPLETED // Session completed
+}
+
+enum BookingPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum BookingSource {
+  PLATFORM // Direct platform booking
+  RECOMMENDATION // Recommended match
+  REPEAT_CLIENT // Returning client
+
+  SPECIAL_OFFER // Special promotion
+}
+
+model SessionRecording {
+  id String @id @default(cuid())
+
+  sessionId String  @unique
+  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  // Recording details
+  recordingUrl String?
+  thumbnailUrl String?
+  duration     Int? // Duration in seconds
+
+  fileSize Int? // File size in bytes
+  format   String? // Video format (mp4, webm, etc.)
+
+  // Recording status
+  status      RecordingStatus
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  // Processing information
+  processingLog   Json? // Processing status and logs
+  qualitySettings Json? // Recording quality settings
+
+  // Access control
+  isEncrypted   Boolean   @default(true)
+  accessExpiry  DateTime? // When recording access expires
+  downloadCount Int       @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("session_recordings")
+}
+
+enum RecordingStatus {
+  INITIALIZING
+  RECORDING
+  PROCESSING
+  COMPLETED
+  FAILED
+
+  DELETED
+}
+
+model ReaderAvailabilityOverride {
+  id String @id @default(cuid())
+
+  readerId String
+  reader   User   @relation("ReaderAvailabilityOverrides", fields: [readerId], references: [id], onDelete: Cascade)
+
+  // Override details
+  date DateTime // Specific date
+
+  startTime   String? // HH:mm format, null means unavailable all day
+  endTime     String? // HH:mm format
+  isAvailable Boolean // True = available, False = unavailable
+
+  // Override reason and notes
+  reason OverrideReason?
+  notes  String?
+
+  // Recurring overrides
+  isRecurring Boolean @default(false)
+
+  recurrenceEnd DateTime? // When recurring override ends
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([readerId, date, startTime, endTime])
+  @@map("reader_availability_overrides")
+}
+
+enum OverrideReason {
+  VACATION
+  SICK_LEAVE
+  PERSONAL
+  MAINTENANCE
+  SPECIAL_EVENT
+  EMERGENCY
+}
+
+model SessionTemplate {
+  id String @id @default(cuid())
+
+  readerId String
+  reader   User   @relation("ReaderTemplates", fields: [readerId], references: [id], onDelete: Cascade)
+
+  // Template details
+  name        String
+  description String?
+  category    String // Reading type
+  duration    Int // Duration in minutes
+  price       Float // Price for this template
+
+  // Template settings
+  isActive     Boolean @default(true)
+  requiresPrep Boolean @default(false) // Requires preparation time
+  prepDuration Int? // Prep time in minutes
+
+  // Session configuration
+  sessionType     SessionType
+  maxParticipants Int         @default(1) // For future group sessions
+
+  // Booking rules
+  advanceBooking Int // Minimum hours in advance
+  maxBookings    Int? // Max bookings per day for this template
+
+  // Template content
+  defaultNotes String? // Default session notes
+  instructions String? // Pre-session instructions for client
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("session_templates")
+}
+
+// Chat Message
+model ChatMessage {
+  id        String  @id @default(cuid())
+  sessionId String
+  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  senderId String
+  sender   User   @relation(fields: [senderId], references: [id])
+
+  content     String
+  messageType MessageType @default(TEXT)
+
+  createdAt DateTime @default(now())
+
+  @@map("chat_messages")
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  SYSTEM
+}
+
+// Review
+model Review {
+  id        String  @id @default(cuid())
+  sessionId String  @unique
+  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  clientId String
+  client   User   @relation("ReviewClient", fields: [clientId], references: [id])
+  readerId String
+  reader   User   @relation("ReviewReader", fields: [readerId], references: [id])
+
+  rating  Int // 1-5 stars
+  comment String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("reviews")
+}
+
+// Financial System
+model Wallet {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  balance  Float  @default(0)
+  currency String @default("USD")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("wallets")
+}
+
+model Transaction {
+  id            String @id @default(cuid())
+  transactionId String @unique // External transaction ID
+
+  userId String
+  user   User   @relation("UserTransactions", fields: [userId], references: [id])
+
+  type     TransactionType
+  amount   Float
+  currency String            @default("USD")
+  status   TransactionStatus
+
+  // Session reference if applicable
+  sessionId String?
+  session   Session? @relation("SessionTransactions", fields: [sessionId], references: [id])
+
+  // Payment processing
+  stripePaymentIntentId String?
+  stripeTransferId      String?
+
+  // Revenue sharing
+  readerEarnings  Float?
+  platformRevenue Float?
+
+  description String?
+  metadata    Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("transactions")
+}
+
+enum TransactionType {
+  ADD_FUNDS
+  SESSION_CHARGE
+  REFUND
+  PAYOUT
+  PURCHASE
+  GIFT_PURCHASE
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+model Payout {
+  id       String @id @default(cuid())
+  readerId String
+  reader   User   @relation(fields: [readerId], references: [id])
+
+  amount   Float
+  currency String       @default("USD")
+  status   PayoutStatus
+
+  stripeTransferId String?
+
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+
+  @@map("payouts")
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// Availability System
+model Availability {
+  id       String @id @default(cuid())
+  readerId String
+  reader   User   @relation("ReaderAvailability", fields: [readerId], references: [id], onDelete: Cascade)
+
+  dayOfWeek Int // 0-6 (Sunday-Saturday)
+  startTime String // HH:mm format
+  endTime   String // HH:mm format
+
+  isRecurring  Boolean   @default(true)
+  specificDate DateTime? // For one-time availability
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([readerId, dayOfWeek, startTime, endTime])
+  @@map("availability")
+}
+
+// Marketplace System
+model Product {
+  id              String  @id @default(cuid())
+  stripeProductId String?
+
+  name        String
+  description String
+  type        ProductType
+  category    String
+  price       Float
+  currency    String      @default("USD")
+
+  // Inventory
+  stockQuantity Int?
+  sku           String?
+
+  // Digital products
+  downloadUrl String?
+  fileUrl     String?
+
+  // Physical products
+  weight     Float?
+  dimensions Json?
+
+  // Media
+  images Json // Images stored as JSON array
+
+  // Status
+  status   ProductStatus @default(ACTIVE)
+  featured Boolean       @default(false)
+
+  // Creator (Reader)
+  readerId String?
+  reader   User?   @relation("ReaderProducts", fields: [readerId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orderItems OrderItem[]
+  purchases  Purchase[]
+
+  @@map("products")
+}
+
+enum ProductType {
+  SERVICE
+  DIGITAL
+  PHYSICAL
+}
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+  OUT_OF_STOCK
+  DRAFT
+}
+
+model Order {
+  id      String @id @default(cuid())
+  orderId String @unique // External order ID
+
+  clientId String
+  client   User   @relation(fields: [clientId], references: [id])
+
+  status      OrderStatus
+  totalAmount Float
+  currency    String      @default("USD")
+
+  // Payment
+  stripePaymentIntentId String?
+
+  // Shipping (for physical products)
+  shippingAddress Json?
+  trackingNumber  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orderItems OrderItem[]
+
+  @@map("orders")
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+model OrderItem {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  quantity Int   @default(1)
+  price    Float // Price at time of purchase
+
+  createdAt DateTime @default(now())
+
+  @@map("order_items")
+}
+
+// Community System
+model LiveStream {
+  id       String @id @default(cuid())
+  streamId String @unique // External stream ID
+
+  readerId String
+  reader   User   @relation(fields: [readerId], references: [id])
+
+  title       String
+  description String?
+  category    String
+
+  status StreamStatus @default(SCHEDULED)
+
+  scheduledAt DateTime?
+  startedAt   DateTime?
+  endedAt     DateTime?
+
+  viewerCount Int  @default(0)
+  maxViewers  Int?
+
+  recordingUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("live_streams")
+}
+
+enum StreamStatus {
+  SCHEDULED
+  LIVE
+  ENDED
+  CANCELLED
+}
+
+model VirtualGift {
+  id         String  @id @default(cuid())
+  giftType   String // e.g., 'heart', 'star', 'diamond'
+  senderId   String
+  sender     User    @relation("VirtualGiftSender", fields: [senderId], references: [id])
+  receiverId String
+  receiver   User    @relation("VirtualGiftReceiver", fields: [receiverId], references: [id])
+  quantity   Int     @default(1)
+  totalValue Int // Total cost in coins
+  message    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("virtual_gifts")
+}
+
+model ForumCategory {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  slug        String  @unique
+  color       String  @default("#6B7280")
+  icon        String?
+
+  order      Int        @default(0)
+  postCount  Int        @default(0)
+  lastPostId String?    @unique
+  lastPost   ForumPost? @relation("CategoryLastPost", fields: [lastPostId], references: [id])
+  lastPostAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  posts   ForumPost[]   @relation("CategoryPosts")
+  threads ForumThread[]
+
+  @@map("forum_categories")
+}
+
+model ForumPost {
+  id String @id @default(cuid())
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  categoryId String
+  category   ForumCategory @relation("CategoryPosts", fields: [categoryId], references: [id])
+
+  // Self-reference for category's last post
+  lastPostCategory ForumCategory? @relation("CategoryLastPost")
+
+  title   String
+  content String
+  status  PostStatus @default(PUBLISHED)
+
+  isPinned Boolean @default(false)
+  isLocked Boolean @default(false)
+
+  threadId String?
+  thread   ForumThread? @relation(fields: [threadId], references: [id])
+
+  viewCount Int @default(0)
+
+  likes     ForumPostLike[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @default(now())
+  replies   ForumReply[]
+
+  @@map("forum_posts")
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  DELETED
+}
+
+model ForumThread {
+  id         String        @id @default(cuid())
+  title      String
+  slug       String        @unique
+  categoryId String
+  category   ForumCategory @relation(fields: [categoryId], references: [id])
+  authorId   String
+  author     User          @relation(fields: [authorId], references: [id])
+  posts      ForumPost[]
+  views      Int           @default(0)
+  pinned     Boolean       @default(false)
+  locked     Boolean       @default(false)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @default(now())
+
+  @@map("forum_threads")
+}
+
+model ForumReply {
+  id String @id @default(cuid())
+
+  postId String
+  post   ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  content String
+  status  PostStatus @default(PUBLISHED)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("forum_replies")
+}
+
+model ForumPostLike {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  postId String
+  post   ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+  @@map("forum_post_likes")
+}
+
+model Message {
+  id String @id @default(cuid())
+
+  senderId   String
+  sender     User   @relation("SentMessages", fields: [senderId], references: [id])
+  receiverId String
+  receiver   User   @relation("ReceivedMessages", fields: [receiverId], references: [id])
+
+  content     String
+  messageType MessageType @default(TEXT)
+
+  isRead Boolean   @default(false)
+  readAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@map("messages")
+}
+
+// System Configuration
+model SystemSetting {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  value       String
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+model AuditLog {
+  id String @id @default(cuid())
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  action     String
+  entityType String
+  entityId   String
+  changes    Json?
+
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+// Notification System
+model Notification {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type    NotificationType
+  title   String
+  message String
+
+  isRead Boolean   @default(false)
+  readAt DateTime?
+
+  // Optional metadata for different notification types
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
+
+enum NotificationType {
+  SESSION_REMINDER
+  SESSION_STARTED
+  SESSION_ENDED
+  PAYMENT_RECEIVED
+  PAYMENT_FAILED
+  REVIEW_RECEIVED
+  NEW_MESSAGE
+  SYSTEM_UPDATE
+  MAINTENANCE
+  PROMOTION
+}
+
+// Purchase System
+model Purchase {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  amount   Float
+  currency String         @default("USD")
+  status   PurchaseStatus @default(PENDING)
+
+  // Access control
+  accessGranted   Boolean   @default(false)
+  accessExpiresAt DateTime?
+
+  // Payment processing
+  stripePaymentIntentId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("purchases")
+}
+
+enum PurchaseStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+// =====================================
+// CONTENT MANAGEMENT SYSTEM
+// =====================================
+
+// Content Categories for organization
+model ContentCategory {
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  description String?
+  parentId    String?
+
+  // Self-referential relationship for nested categories
+  parent   ContentCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children ContentCategory[] @relation("CategoryHierarchy")
+
+  // Content items in this category
+  contentItems   ContentItem[]
+  knowledgeBases KnowledgeBase[] @relation("KnowledgeBaseCategory")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("content_categories")
+}
+
+// Main content items (pages, articles, documentation, etc.)
+model ContentItem {
+  id      String  @id @default(cuid())
+  title   String
+  slug    String  @unique
+  content String // Main content body (supports Markdown)
+  excerpt String? // Brief description
+
+  // Content classification
+  type     ContentType   @default(ARTICLE)
+  status   ContentStatus @default(DRAFT)
+  featured Boolean       @default(false)
+
+  // Organization
+  categoryId String?
+  category   ContentCategory? @relation(fields: [categoryId], references: [id])
+  tags       String? // JSON string of tags for SQLite compatibility
+
+  // SEO and metadata
+  seoTitle       String?
+  seoDescription String?
+  seoKeywords    String? // JSON string of keywords for SQLite compatibility
+
+  // Analytics
+  views Int @default(0)
+
+  // Publishing
+  authorId    String
+  author      User      @relation("ContentAuthor", fields: [authorId], references: [id])
+  publishedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations for additional features
+  contentVersions  ContentVersion[]
+  contentComments  ContentComment[]
+  contentAnalytics ContentAnalytics[]
+
+  @@map("content_items")
+}
+
+// Content versioning for tracking changes
+model ContentVersion {
+  id          String      @id @default(cuid())
+  contentId   String
+  contentItem ContentItem @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  // Version data
+  versionNumber Int
+  title         String
+  contentBody   String // Renamed to avoid conflict
+  excerpt       String?
+
+  // Change tracking
+  changeLog String? // Description of changes made
+  authorId  String
+  author    User    @relation("VersionAuthor", fields: [authorId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([contentId, versionNumber])
+  @@map("content_versions")
+}
+
+// Comments/feedback on content items (for internal use)
+model ContentComment {
+  id        String      @id @default(cuid())
+  contentId String
+  content   ContentItem @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  // Comment data
+  comment String
+  status  CommentStatus @default(PENDING)
+
+  // Author
+  authorId String
+  author   User   @relation("ContentCommentAuthor", fields: [authorId], references: [id])
+
+  // Threading support
+  parentId String?
+  parent   ContentComment?  @relation("CommentThread", fields: [parentId], references: [id])
+  replies  ContentComment[] @relation("CommentThread")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("content_comments")
+}
+
+// Content analytics for tracking performance
+model ContentAnalytics {
+  id          String      @id @default(cuid())
+  contentId   String
+  contentItem ContentItem @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  // Analytics data
+  date        DateTime
+  views       Int      @default(0)
+  uniqueViews Int      @default(0)
+  timeOnPage  Int      @default(0) // Average time in seconds
+  bounceRate  Float    @default(0) // Percentage
+
+  // Traffic sources
+  organicViews  Int @default(0)
+  directViews   Int @default(0)
+  referralViews Int @default(0)
+  socialViews   Int @default(0)
+
+  // Engagement metrics
+  shares   Int @default(0)
+  likes    Int @default(0)
+  comments Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([contentId, date])
+  @@map("content_analytics")
+}
+
+// Knowledge base for help documentation
+model KnowledgeBase {
+  id          String  @id @default(cuid())
+  title       String
+  slug        String  @unique
+  description String?
+
+  // Organization
+  categoryId String?
+  category   ContentCategory? @relation("KnowledgeBaseCategory", fields: [categoryId], references: [id])
+
+  // Content
+  sections KnowledgeSection[]
+
+  // Settings
+  isPublic Boolean @default(true)
+  featured Boolean @default(false)
+
+  // Analytics
+  views      Int @default(0)
+  helpful    Int @default(0) // "Was this helpful?" positive votes
+  notHelpful Int @default(0) // "Was this helpful?" negative votes
+
+  authorId String
+  author   User   @relation("KnowledgeBaseAuthor", fields: [authorId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("knowledge_bases")
+}
+
+// Sections within knowledge base articles
+model KnowledgeSection {
+  id              String        @id @default(cuid())
+  knowledgeBaseId String
+  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+
+  title   String
+  content String
+  order   Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("knowledge_sections")
+}
+
+// Content types enumeration
+enum ContentType {
+  PAGE // Static pages
+  ARTICLE // Blog-style articles
+  FAQ // Frequently asked questions
+  GUIDE // How-to guides
+  POLICY // Terms, privacy, etc.
+  NEWS // News and announcements
+  TUTORIAL // Step-by-step tutorials
+}
+
+// Content status enumeration
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  SCHEDULED
+}
+
+// Comment status enumeration
+enum CommentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SPAM
+}
+
+// Support System Models
+model SupportTicket {
+  id           String  @id @default(cuid())
+  ticketNumber String  @unique
+  subject      String
+  description  String
+  status       String  @default("open") // open, in-progress, waiting-response, resolved, closed
+  priority     String  @default("medium") // low, medium, high, urgent
+  category     String?
+
+  // Customer information
+  customerId String
+  customer   User   @relation("SupportTicketCustomer", fields: [customerId], references: [id])
+
+  // Assignment
+  assignedToId String?
+  assignedTo   User?   @relation("SupportTicketAssignedTo", fields: [assignedToId], references: [id])
+
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  firstResponseAt DateTime?
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+
+  // Additional fields
+  tags               String? // JSON string for SQLite compatibility
+  satisfactionRating Int? // 1-5 rating
+  resolutionTime     Int? // Resolution time in minutes
+
+  // Relations
+  messages SupportMessage[]
+
+  @@map("support_tickets")
+}
+
+model SupportMessage {
+  id             String  @id @default(cuid())
+  ticketId       String
+  content        String
+  isFromCustomer Boolean @default(false)
+  authorId       String
+
+  // Relations
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User          @relation("SupportMessageAuthor", fields: [authorId], references: [id])
+
+  // Attachments
+  attachments String? // JSON string for SQLite compatibility
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("support_messages")
+}
+
+model SupportAgent {
+  id                String @id @default(cuid())
+  userId            String @unique
+  status            String @default("offline") // online, away, offline
+  activeTickets     Int    @default(0)
+  completedTickets  Int    @default(0)
+  satisfactionScore Float  @default(0)
+  avgResponseTime   Float  @default(0) // in hours
+
+  // Relations
+  user User @relation("SupportAgentUser", fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("support_agents")
+}
