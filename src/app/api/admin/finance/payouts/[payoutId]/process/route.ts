@@ -80,7 +80,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 data: {
                     status: 'COMPLETED',
                     // TODO: Get actual transaction ID from Stripe payout
-                    transactionId: null
+                    transactionId: undefined
                 }
             });
 

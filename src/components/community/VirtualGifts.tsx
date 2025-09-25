@@ -355,12 +355,45 @@ function GiftShop({ recipientId, recipientName, onGiftSent }: GiftShopProps) {
 
   const sendGift = async () => {
     if (!selectedGift || !user) return;
-    
+
     const totalCost = selectedGift.value * quantity;
     if (balance < totalCost) {
       // Show insufficient funds message
       alert('Insufficient balance to send this gift.');
       return;
+    }
+
+    setSending(true);
+    try {
+      const response = await fetch('/api/virtual-gifts/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientId,
+          giftId: selectedGift.id,
+          quantity,
+          message
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        alert('Gift sent successfully!');
+        onGiftSent?.(selectedGift, quantity);
+        setSelectedGift(null);
+        setQuantity(1);
+        setMessage('');
+        fetchBalance(); // Refresh balance
+      } else {
+        alert('Failed to send gift. Please try again.');
+      }
+    } catch (error) {
+      console.error('Failed to send gift:', error);
+      alert('Failed to send gift. Please try again.');
+    } finally {
+      setSending(false);
+    }
+  };
 
   const getRarityBadgeColor = (rarity: string) => {
     switch (rarity) {
@@ -371,30 +404,6 @@ function GiftShop({ recipientId, recipientName, onGiftSent }: GiftShopProps) {
       default: return 'bg-gray-100 text-gray-800';
     }
   };
-  }
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Gift className="h-4 w-4 mr-2" />
-          Send Gift
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Gift className="h-5 w-5" />
-            Send Gift to {recipientName}
-          </DialogTitle>
-          <DialogDescription>
-            Show your appreciation with a virtual gift
-          </DialogDescription>
-        </DialogHeader>
-        {/* ...rest of the return statement... */}
-      </DialogContent>
-    </Dialog>
-  );
-}
   return (
     <Dialog>
       <DialogTrigger asChild>

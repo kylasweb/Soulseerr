@@ -313,6 +313,9 @@ export async function GET(request: NextRequest) {
             ? (activeReaders / totalReaders) * 100
             : 0;
 
+        // TODO: Calculate actual top performing readers
+        const topPerformingReaders = Math.floor(activeReaders * 0.2); // Top 20%
+
         // TODO: Calculate actual reader churn rate
         const readerChurnRate = 0;
 

@@ -28,11 +28,49 @@ interface EnhancedAnalyticsDashboardProps {
 }
 
 // TODO: Replace with actual API calls
-const revenueData = []
+const revenueData: Array<{
+  date: string;
+  totalRevenue: number;
+  sessionRevenue: number;
+  marketplaceRevenue: number;
+  giftRevenue: number;
+  subscriptionRevenue: number;
+  platformFees: number;
+  readerPayouts: number;
+  netRevenue: number;
+  transactionCount: number;
+  averageOrderValue: number;
+}> = []
 
-const sessionData = []
+const sessionData: Array<{
+  date: string;
+  totalSessions: number;
+  completedSessions: number;
+  cancelledSessions: number;
+  averageDuration: number;
+  averageRating: number;
+  videoSessions: number;
+  voiceSessions: number;
+  chatSessions: number;
+  newClientSessions: number;
+  returningClientSessions: number;
+  peakHourSessions: number;
+  offPeakSessions: number;
+}> = []
 
-const userEngagementData = []
+const userEngagementData: Array<{
+  date: string;
+  totalUsers: number;
+  activeUsers: number;
+  newUsers: number;
+  returningUsers: number;
+  churned: number;
+  sessionDuration: number;
+  pageViews: number;
+  bounceRate: number;
+  conversionRate: number;
+  retentionRate: number;
+}> = []
 
 export function EnhancedAnalyticsDashboard({ user }: EnhancedAnalyticsDashboardProps) {
   const [period, setPeriod] = useState<'day' | 'week' | 'month' | 'year'>('month')
