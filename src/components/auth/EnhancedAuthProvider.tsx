@@ -81,7 +81,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signIn = async (email: string, password: string): Promise<void> => {
     try {
       setLoading(true);
-      const response = await fetch('/api/auth/signin', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -94,7 +94,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       const data = await response.json();
-      setUser(data.user);
+      
+      // Transform user data to match frontend interface
+      const transformedUser: User = {
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.displayName || data.user.username || data.user.name || 'User',
+        role: data.user.role.toLowerCase() as 'admin' | 'reader' | 'client',
+        avatar: data.user.avatar,
+        provider: data.user.provider?.toLowerCase() || 'email',
+        firebaseUid: data.user.firebaseUid,
+      };
+      
+      setUser(transformedUser);
       
       // Store auth token
       localStorage.setItem('auth-token', data.token);
@@ -117,25 +129,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   ): Promise<void> => {
     try {
       setLoading(true);
-      const response = await fetch('/api/auth/signup', {
+      
+      // Split name into first and last name
+      const nameParts = name.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || undefined;
+      
+      const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password, role, name }),
+        body: JSON.stringify({ 
+          email, 
+          password, 
+          role: role.toUpperCase() as 'READER' | 'CLIENT',
+          firstName,
+          lastName,
+          username: email.split('@')[0] // Use email prefix as username
+        }),
       });
 
       if (!response.ok) {
-        throw new Error('Sign up failed');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Sign up failed');
       }
 
       const data = await response.json();
-      setUser(data.user);
       
-      // Store auth token
-      localStorage.setItem('auth-token', data.token);
-      
-      router.push('/dashboard');
+      // Registration successful - user needs to verify email
+      // Don't auto-login, redirect to login page
+      router.push('/login?message=Registration successful! Please check your email for verification.');
     } catch (error) {
       console.error('Sign up error:', error);
       throw error;
@@ -155,11 +179,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
       
       // Sign out from our backend
-      await fetch('/api/auth/signout', {
+      await fetch('/api/auth/logout', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`,
-        },
       });
 
       // Clear local state

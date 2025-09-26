@@ -14,14 +14,14 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        // Create WebSocket pair
-        const { webSocket, response } = new WebSocketPair();
+        // WebSocket functionality disabled - using Socket.IO instead
+        // WebSocketPair is not available in Node.js environment
+        return new Response('WebSocket functionality disabled - use Socket.IO', { status: 501 });
 
-        // Handle WebSocket connection
-        webSocket.accept();
-
-        const connectionId = crypto.randomUUID();
-        activeConnections.set(connectionId, webSocket);
+        /*
+        // Create WebSocket pair - DISABLED: WebSocketPair not available in Node.js
+        // Using Socket.IO instead for WebSocket functionality
+        // const { webSocket, response } = new WebSocketPair();
 
         // Handle incoming messages
         webSocket.addEventListener('message', async (event) => {
@@ -69,6 +69,7 @@ export async function GET(request: NextRequest) {
         });
 
         return response;
+        */
     } catch (error) {
         console.error('WebSocket setup error:', error);
         return new Response('WebSocket setup failed', { status: 500 });
@@ -118,9 +119,8 @@ async function handleChatMessage(webSocket: WebSocket, payload: any) {
             data: {
                 sessionId,
                 senderId,
-                receiverId,
                 content,
-                type: type || 'text',
+                messageType: type || 'TEXT',
             },
         });
 

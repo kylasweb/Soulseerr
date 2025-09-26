@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import io from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
 
 // Placeholder hook for socket functionality - disabled for Vercel deployment
 export function useSocket() {
@@ -8,9 +10,9 @@ export function useSocket() {
     // Real-time features will be re-enabled when WebSocket API is available
 
     return {
-        socket: null,
+        socket: null as Socket | null,
         isConnected
     };
 }
 
-export const socket = null;
+export const socket: Socket | null = null;

@@ -273,10 +273,10 @@ export default function AdvancedAnalyticsDashboard() {
       }
     };
 
-    socket.on('admin:analytics:update', handleAnalyticsUpdate);
+    socket!.on('admin:analytics:update', handleAnalyticsUpdate);
 
     return () => {
-      socket.off('admin:analytics:update', handleAnalyticsUpdate);
+      socket!.off('admin:analytics:update', handleAnalyticsUpdate);
     };
   }, [socket, fetchAnalyticsStats, fetchChartData, fetchUserMetrics, fetchTopReaders]);
 

@@ -223,10 +223,10 @@ export default function ReaderManagementDashboard() {
       }
     };
 
-    socket.on('admin:reader:update', handleReaderUpdate);
+    socket!.on('admin:reader:update', handleReaderUpdate);
 
     return () => {
-      socket.off('admin:reader:update', handleReaderUpdate);
+      socket!.off('admin:reader:update', handleReaderUpdate);
     };
   }, [socket, currentPage, fetchApplications, fetchReaders, fetchStats]);
 

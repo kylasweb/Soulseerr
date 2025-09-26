@@ -52,9 +52,8 @@ export async function POST(request: NextRequest) {
                     type,
                     title,
                     message,
-                    metadata: metadata ? JSON.stringify(metadata) : null,
-                    read: false,
-                    createdAt: new Date(timestamp)
+                    metadata: metadata || null,
+                    isRead: false
                 }
             });
         } catch (dbError) {
@@ -138,7 +137,7 @@ export async function PATCH(request: NextRequest) {
         try {
             await db.notification.update({
                 where: { id: notificationId },
-                data: { read: true }
+                data: { isRead: true }
             });
         } catch (dbError) {
             console.error('Database update error (non-blocking):', dbError);

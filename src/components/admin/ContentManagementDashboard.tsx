@@ -228,10 +228,10 @@ export default function ContentManagementDashboard() {
       }
     };
 
-    socket.on('admin:content:update', handleContentUpdate);
+    socket!.on('admin:content:update', handleContentUpdate);
 
     return () => {
-      socket.off('admin:content:update', handleContentUpdate);
+      socket!.off('admin:content:update', handleContentUpdate);
     };
   }, [socket, fetchContentItems, fetchContentStats]);
 

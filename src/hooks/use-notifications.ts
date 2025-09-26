@@ -280,14 +280,14 @@ export function useNotifications(): UseNotificationsReturn {
             }
         };
 
-        socket.on('notification:new', handleNewNotification);
-        socket.on('notification:read', handleNotificationRead);
-        socket.on('notification:deleted', handleNotificationDeleted);
+        socket!.on('notification:new', handleNewNotification);
+        socket!.on('notification:read', handleNotificationRead);
+        socket!.on('notification:deleted', handleNotificationDeleted);
 
         return () => {
-            socket.off('notification:new', handleNewNotification);
-            socket.off('notification:read', handleNotificationRead);
-            socket.off('notification:deleted', handleNotificationDeleted);
+            socket!.off('notification:new', handleNewNotification);
+            socket!.off('notification:read', handleNotificationRead);
+            socket!.off('notification:deleted', handleNotificationDeleted);
         };
     }, [socket, notifications]);
 

@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
         }
 
         return NextResponse.json({
-            signal: JSON.parse(signalData)
+            signal: JSON.parse(signalData as string)
         });
     } catch (error) {
         console.error('Error fetching WebRTC signal:', error);

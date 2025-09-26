@@ -262,10 +262,10 @@ export default function FinancialManagementDashboard() {
       }
     };
 
-    socket.on('admin:finance:update', handleFinancialUpdate);
+    socket!.on('admin:finance:update', handleFinancialUpdate);
 
     return () => {
-      socket.off('admin:finance:update', handleFinancialUpdate);
+      socket!.off('admin:finance:update', handleFinancialUpdate);
     };
   }, [socket, currentPage, fetchTransactions, fetchPayouts, fetchStats, fetchRevenueData]);
 

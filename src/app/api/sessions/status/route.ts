@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
         }
 
         return NextResponse.json({
-            session: JSON.parse(sessionData)
+            session: JSON.parse(sessionData as string)
         });
     } catch (error) {
         console.error('Error fetching session status:', error);

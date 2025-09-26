@@ -31,17 +31,6 @@ interface UseChatReturn {
 
 import { useState, useEffect, useCallback } from 'react';
 
-interface ChatMessage {
-  id: string;
-  sessionId: string;
-  senderId: string;
-  receiverId: string;
-  content: string;
-  type: 'text' | 'image' | 'file';
-  timestamp: number;
-  read: boolean;
-}
-
 interface UseChatOptions {
   sessionId: string;
   userId: string;

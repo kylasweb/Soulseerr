@@ -167,10 +167,10 @@ export default function UserManagementDashboard() {
       }
     };
 
-    socket.on('admin:user:update', handleUserUpdate);
+    socket!.on('admin:user:update', handleUserUpdate);
 
     return () => {
-      socket.off('admin:user:update', handleUserUpdate);
+      socket!.off('admin:user:update', handleUserUpdate);
     };
   }, [socket, fetchStats]);
 

@@ -76,14 +76,10 @@ export async function POST(request: NextRequest) {
         try {
             await db.chatMessage.create({
                 data: {
-                    id: messageId,
                     sessionId,
                     senderId,
-                    receiverId,
                     content,
-                    type,
-                    timestamp: new Date(timestamp),
-                    read: false
+                    messageType: type
                 }
             });
         } catch (dbError) {

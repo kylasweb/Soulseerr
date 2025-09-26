@@ -157,14 +157,14 @@ export default function SessionManagementDashboard() {
       fetchStats();
     };
 
-    socket.on('admin:session:update', handleSessionUpdate);
-    socket.on('admin:booking:new', handleBookingUpdate);
-    socket.on('admin:booking:update', handleBookingUpdate);
+    socket!.on('admin:session:update', handleSessionUpdate);
+    socket!.on('admin:booking:new', handleBookingUpdate);
+    socket!.on('admin:booking:update', handleBookingUpdate);
 
     return () => {
-      socket.off('admin:session:update', handleSessionUpdate);
-      socket.off('admin:booking:new', handleBookingUpdate);
-      socket.off('admin:booking:update', handleBookingUpdate);
+      socket!.off('admin:session:update', handleSessionUpdate);
+      socket!.off('admin:booking:new', handleBookingUpdate);
+      socket!.off('admin:booking:update', handleBookingUpdate);
     };
   }, [socket, fetchStats]);
 
