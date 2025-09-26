@@ -1,19 +1,19 @@
 'use client';
 
+import { useState } from 'react';
 import { useWebRTC } from '@/hooks/use-webrtc';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  Video, 
-  VideoOff, 
-  Mic, 
-  MicOff, 
-  Phone, 
+import {
+  Video,
+  VideoOff,
+  Mic,
+  MicOff,
+  Phone,
   PhoneOff,
   User,
-  Clock,
   Wifi,
   WifiOff,
 } from 'lucide-react';
@@ -26,51 +26,50 @@ interface VideoCallProps {
   onCallEnd?: () => void;
 }
 
-export function VideoCall({ 
-  sessionId, 
-  userId, 
-  role, 
+export function VideoCall({
+  sessionId,
+  userId,
+  role,
   participantName = 'Participant',
-  onCallEnd 
+  onCallEnd
 }: VideoCallProps) {
+  // Enable WebRTC with Redis signaling
   const {
     isConnected,
-    isCallActive,
-    isCallConnecting,
-    localStream,
+    isInCall,
     remoteStream,
+    localStream,
     error,
-    localVideoRef,
-    remoteVideoRef,
     startCall,
     endCall,
-    toggleAudio,
-    toggleVideo,
-  } = useWebRTC({
-    sessionId,
-    userId,
-    role,
-    onCallStarted: () => {
-      console.log('Call started');
-    },
-    onCallEnded: (reason) => {
-      console.log('Call ended:', reason);
-      onCallEnd?.();
-    },
-    onParticipantJoined: (participant) => {
-      console.log('Participant joined:', participant);
-    },
-    onError: (error) => {
-      console.error('WebRTC error:', error);
-    },
-  });
+    localVideoRef,
+    remoteVideoRef,
+  } = useWebRTC(sessionId, userId, 'peer-id'); // TODO: Pass actual peer ID
 
-  const getAudioEnabled = () => {
-    return localStream?.getAudioTracks()[0]?.enabled ?? false;
+  const [audioEnabled, setAudioEnabled] = useState(true);
+  const [videoEnabled, setVideoEnabled] = useState(true);
+
+  const toggleAudio = () => {
+    if (localStream) {
+      localStream.getAudioTracks().forEach(track => {
+        track.enabled = !track.enabled;
+      });
+      setAudioEnabled(!audioEnabled);
+    }
   };
 
-  const getVideoEnabled = () => {
-    return localStream?.getVideoTracks()[0]?.enabled ?? false;
+  const toggleVideo = () => {
+    if (localStream) {
+      localStream.getVideoTracks().forEach(track => {
+        track.enabled = !track.enabled;
+      });
+      setVideoEnabled(!videoEnabled);
+    }
+  };
+
+  const handleEndCall = () => {
+    endCall();
+    onCallEnd?.();
   };
 
   return (
@@ -87,12 +86,12 @@ export function VideoCall({
             {isConnected ? 'Connected' : 'Connecting...'}
           </span>
         </div>
-        
+
         <div className="flex items-center space-x-2">
-          <Badge variant={isCallActive ? 'default' : isCallConnecting ? 'secondary' : 'outline'}>
-            {isCallActive ? 'Live' : isCallConnecting ? 'Connecting...' : 'Ready'}
+          <Badge variant={isInCall ? 'default' : 'outline'}>
+            {isInCall ? 'Live' : 'Ready'}
           </Badge>
-          
+
           {role === 'CLIENT' && (
             <Badge variant="outline">
               <User className="h-3 w-3 mr-1" />
@@ -127,31 +126,41 @@ export function VideoCall({
           </CardHeader>
           <CardContent className="p-0">
             <div className="relative aspect-video bg-muted rounded-b-lg overflow-hidden">
-              <video
-                ref={localVideoRef}
-                autoPlay
-                muted
-                playsInline
-                className="w-full h-full object-cover"
-              />
-              
-              {!localStream && (
-                <div className="absolute inset-0 flex items-center justify-center bg-muted">
+              {localStream ? (
+                <video
+                  ref={localVideoRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-center">
                     <VideoOff className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">Camera off</p>
                   </div>
                 </div>
               )}
-              
+
               {/* Local video controls overlay */}
               <div className="absolute bottom-2 left-2 flex space-x-1">
-                <Badge variant="secondary" className="text-xs">
-                  {getVideoEnabled() ? 'Video On' : 'Video Off'}
-                </Badge>
-                <Badge variant="secondary" className="text-xs">
-                  {getAudioEnabled() ? 'Mic On' : 'Mic Off'}
-                </Badge>
+                <Button
+                  size="sm"
+                  variant={audioEnabled ? "secondary" : "destructive"}
+                  onClick={toggleAudio}
+                  disabled={!isInCall}
+                >
+                  {audioEnabled ? <Mic className="h-3 w-3" /> : <MicOff className="h-3 w-3" />}
+                </Button>
+                <Button
+                  size="sm"
+                  variant={videoEnabled ? "secondary" : "destructive"}
+                  onClick={toggleVideo}
+                  disabled={!isInCall}
+                >
+                  {videoEnabled ? <Video className="h-3 w-3" /> : <VideoOff className="h-3 w-3" />}
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -167,110 +176,40 @@ export function VideoCall({
           </CardHeader>
           <CardContent className="p-0">
             <div className="relative aspect-video bg-muted rounded-b-lg overflow-hidden">
-              <video
-                ref={remoteVideoRef}
-                autoPlay
-                playsInline
-                className="w-full h-full object-cover"
-              />
-              
-              {!remoteStream && (
-                <div className="absolute inset-0 flex items-center justify-center bg-muted">
+              {remoteStream ? (
+                <video
+                  ref={remoteVideoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-center">
                     <User className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">
-                      {isCallConnecting ? 'Connecting...' : 'Waiting for participant...'}
-                    </p>
+                    <p className="text-sm text-muted-foreground">Waiting for participant</p>
                   </div>
                 </div>
               )}
-              
-              {/* Remote video status overlay */}
-              <div className="absolute bottom-2 left-2">
-                <Badge variant="secondary" className="text-xs">
-                  {remoteStream ? 'Connected' : 'Not Connected'}
-                </Badge>
-              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Call Controls */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-center space-x-4">
-            {/* Audio Toggle */}
-            <Button
-              variant={getAudioEnabled() ? 'default' : 'destructive'}
-              size="lg"
-              onClick={toggleAudio}
-              disabled={!isCallActive && !isCallConnecting}
-            >
-              {getAudioEnabled() ? (
-                <Mic className="h-5 w-5" />
-              ) : (
-                <MicOff className="h-5 w-5" />
-              )}
-            </Button>
-
-            {/* Video Toggle */}
-            <Button
-              variant={getVideoEnabled() ? 'default' : 'destructive'}
-              size="lg"
-              onClick={toggleVideo}
-              disabled={!isCallActive && !isCallConnecting}
-            >
-              {getVideoEnabled() ? (
-                <Video className="h-5 w-5" />
-              ) : (
-                <VideoOff className="h-5 w-5" />
-              )}
-            </Button>
-
-            {/* Start/End Call */}
-            {!isCallActive && !isCallConnecting ? (
-              <Button
-                variant="default"
-                size="lg"
-                onClick={startCall}
-                disabled={!isConnected}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                <Phone className="h-5 w-5 mr-2" />
-                Start Call
-              </Button>
-            ) : (
-              <Button
-                variant="destructive"
-                size="lg"
-                onClick={() => endCall()}
-              >
-                <PhoneOff className="h-5 w-5 mr-2" />
-                End Call
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Call Info */}
-      {isCallActive && (
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-center space-x-4 text-sm text-muted-foreground">
-              <div className="flex items-center">
-                <Clock className="h-4 w-4 mr-1" />
-                <span>Session ID: {sessionId}</span>
-              </div>
-              <div className="flex items-center">
-                <User className="h-4 w-4 mr-1" />
-                <span>Role: {role}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <div className="flex justify-center space-x-4">
+        {!isInCall ? (
+          <Button onClick={startCall} size="lg" className="px-8">
+            <Video className="h-5 w-5 mr-2" />
+            Start Call
+          </Button>
+        ) : (
+          <Button onClick={handleEndCall} size="lg" variant="destructive" className="px-8">
+            <PhoneOff className="h-5 w-5 mr-2" />
+            End Call
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

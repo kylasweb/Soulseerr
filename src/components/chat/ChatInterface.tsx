@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useChat } from '@/hooks/use-chat';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Send, 
   Paperclip, 
@@ -21,6 +21,7 @@ import {
   Wifi,
   WifiOff,
   User,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface ChatInterfaceProps {
@@ -59,31 +60,12 @@ export function ChatInterface({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const {
-    messages,
-    isConnected,
-    isTyping: receiverTyping,
-    loading,
-    error,
-    sendMessage,
-    markAsRead,
-    setTyping,
-    loadMoreMessages,
-  } = useChat({
-    sessionId,
-    userId,
-    receiverId,
-    onMessage: (msg) => {
-      // Auto-scroll to bottom when new message arrives
-      scrollToBottom();
-    },
-    onTyping: (typingUserId, isTyping) => {
-      // Handle typing indicators
-    },
-    onMessagesRead: (messageIds) => {
-      // Handle read receipts
-    },
-  });
+  // Placeholder for disabled chat functionality
+  const messages: ChatMessage[] = [];
+  const isConnected = false;
+  const receiverTyping = false;
+  const loading = false;
+  const error = null;
 
   // Scroll to bottom of messages
   const scrollToBottom = () => {
@@ -102,35 +84,17 @@ export function ChatInterface({
     }
   }, [isConnected]);
 
-  // Handle message input
+  // Handle message input (disabled)
   const handleMessageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setMessage(value);
-    
-    // Handle typing indicators
-    if (value.trim() && !isTyping) {
-      setIsTyping(true);
-      setTyping(true);
-    } else if (!value.trim() && isTyping) {
-      setIsTyping(false);
-      setTyping(false);
-    }
+    // Typing indicators disabled for Vercel deployment
   };
 
-  // Handle message send
+  // Handle message send (disabled)
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!message.trim() || !isConnected) return;
-
-    try {
-      await sendMessage(message.trim());
-      setMessage('');
-      setIsTyping(false);
-      setTyping(false);
-    } catch (error) {
-      console.error('Error sending message:', error);
-    }
+    // Chat is disabled for Vercel deployment
   };
 
   // Format timestamp
@@ -221,6 +185,25 @@ export function ChatInterface({
 
       {/* Messages Area */}
       <div className="flex-1 flex flex-col">
+        {/* Connection Status */}
+        {!isConnected && (
+          <Alert className="border-amber-200 bg-amber-50">
+            <WifiOff className="h-4 w-4" />
+            <AlertDescription>
+              Connecting to chat... Messages will appear when connection is established.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {isConnected && (
+          <Alert className="border-green-200 bg-green-50">
+            <Wifi className="h-4 w-4" />
+            <AlertDescription>
+              Connected to real-time chat via Upstash Redis.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {error && (
           <div className="p-4 bg-red-50 border-b">
             <p className="text-sm text-red-600">{error}</p>
@@ -229,24 +212,6 @@ export function ChatInterface({
 
         <ScrollArea className="flex-1 p-4">
           <div className="space-y-4">
-            {/* Load More Button */}
-            {hasMore && (
-              <div className="flex justify-center">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={loadMoreMessages}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    'Load More Messages'
-                  )}
-                </Button>
-              </div>
-            )}
-
             {/* Messages Grouped by Date */}
             {Object.entries(groupedMessages).map(([date, dateMessages]) => (
               <div key={date} className="space-y-4">
