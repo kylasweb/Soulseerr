@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { useAuth } from './AuthProvider'
+import { useAuth } from './EnhancedAuthProvider'
 import { User, Mail, Lock, Eye, EyeOff } from 'lucide-react'
 
 const registerSchema = z.object({
@@ -39,7 +39,7 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   
-  const { register: registerUser } = useAuth()
+  const { signUp } = useAuth()
   
   const {
     register,
@@ -55,22 +55,15 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
     setError(null)
     
     try {
-      const result = await registerUser({
-        firstName: data.firstName,
-        lastName: data.lastName,
-        username: data.username,
-        email: data.email,
-        password: data.password,
-        role: data.role,
-      })
+      // Combine first and last name for the Firebase provider
+      const fullName = data.firstName && data.lastName 
+        ? `${data.firstName} ${data.lastName}` 
+        : data.firstName || data.lastName || data.username || 'User'
       
-      if (result.success) {
-        onSuccess?.()
-      } else {
-        setError(result.error || 'Registration failed')
-      }
+      await signUp(data.email, data.password, data.role.toLowerCase() as 'reader' | 'client', fullName)
+      onSuccess?.()
     } catch (error) {
-      setError('An unexpected error occurred')
+      setError(error instanceof Error ? error.message : 'Registration failed')
     } finally {
       setLoading(false)
     }

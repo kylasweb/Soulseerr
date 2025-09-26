@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { useAuth } from './AuthProvider'
+import { useAuth } from './EnhancedAuthProvider'
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
 
 const loginSchema = z.object({
@@ -29,7 +29,7 @@ export function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   
-  const { login } = useAuth()
+  const { signIn } = useAuth()
   
   const {
     register,
@@ -44,15 +44,10 @@ export function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
     setError(null)
     
     try {
-      const result = await login(data.email, data.password)
-      
-      if (result.success) {
-        onSuccess?.()
-      } else {
-        setError(result.error || 'Login failed')
-      }
+      await signIn(data.email, data.password)
+      onSuccess?.()
     } catch (error) {
-      setError('An unexpected error occurred')
+      setError(error instanceof Error ? error.message : 'Login failed')
     } finally {
       setLoading(false)
     }
